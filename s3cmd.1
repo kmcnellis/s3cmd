@@ -161,7 +161,7 @@ to a specific bucket instead of attempting to list
 them all.
 .TP
 \fB\-c\fR FILE, \fB\-\-config\fR=FILE
-Config file name. Defaults to /home/mludvig/.s3cfg
+Config file name. Defaults to /home/kiana/.s3cfg
 .TP
 \fB\-\-dump\-config\fR
 Dump current configuration after parsing config files
@@ -184,6 +184,9 @@ Encrypt files before uploading to S3.
 .TP
 \fB\-\-no\-encrypt\fR
 Don't encrypt files.
+.TP
+\fB\-\-encrypt\-passphrase\fR=GPG_PASSPHRASE
+Encryption password
 .TP
 \fB\-f\fR, \fB\-\-force\fR
 Force overwrite and other dangerous operations.

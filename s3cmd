@@ -2137,6 +2137,9 @@ def main():
 
     optparser.add_option("-e", "--encrypt", dest="encrypt", action="store_true", help="Encrypt files before uploading to S3.")
     optparser.add_option(      "--no-encrypt", dest="encrypt", action="store_false", help="Don't encrypt files.")
+    optparser.add_option(      "--encrypt-passphrase", dest="gpg_passphrase", help="Encryption password")
+
+
     optparser.add_option("-f", "--force", dest="force", action="store_true", help="Force overwrite and other dangerous operations.")
     optparser.add_option(      "--continue", dest="get_continue", action="store_true", help="Continue getting a partially downloaded file (only for [get] command).")
     optparser.add_option(      "--continue-put", dest="put_continue", action="store_true", help="Continue uploading partially uploaded files or multipart upload parts.  Restarts/parts files that don't have matching size and md5.  Skips files/parts that do.  Note: md5sum checks are not always sufficient to check (part) file equality.  Enable this at your own risk.")
@@ -2402,8 +2405,8 @@ def main():
     socket.setdefaulttimeout(cfg.socket_timeout)
 
     if cfg.encrypt and cfg.gpg_passphrase == "":
-        error(u"Encryption requested but no passphrase set in config file.")
-        error(u"Please re-run 's3cmd --configure' and supply it.")
+        error(u"Encryption requested but no passphrase set in config file or command line.")
+        error(u"Please re-run 's3cmd --configure' and supply it or specify --encrypt-passphrase as an argument.")
         sys.exit(EX_CONFIG)
 
     if options.dump_config:
