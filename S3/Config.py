@@ -24,8 +24,8 @@ class Config(object):
     access_key = ""
     secret_key = ""
     access_token = ""
-    host_base = "s3.amazonaws.com"
-    host_bucket = "%(bucket)s.s3.amazonaws.com"
+    host_base = ""
+    host_bucket = ""
     simpledb_host = "sdb.amazonaws.com"
     cloudfront_host = "cloudfront.amazonaws.com"
     verbosity = logging.WARNING
@@ -73,14 +73,14 @@ class Config(object):
     _doc['delete_removed'] = "[sync] Remove remote S3 objects when local file has been deleted"
     delay_updates = False
     gpg_passphrase = ""
-    gpg_command = ""
+    gpg_command = "/usr/bin/gpg"
     gpg_encrypt = "%(gpg_command)s -c --verbose --no-use-agent --batch --yes --passphrase-fd %(passphrase_fd)s -o %(output_file)s %(input_file)s"
     gpg_decrypt = "%(gpg_command)s -d --verbose --no-use-agent --batch --yes --passphrase-fd %(passphrase_fd)s -o %(output_file)s %(input_file)s"
     use_https = False
     bucket_location = "US"
     default_mime_type = "binary/octet-stream"
     guess_mime_type = True
-    use_mime_magic = True
+    use_mime_magic = False
     mime_type = ""
     enable_multipart = True
     multipart_chunk_size_mb = 15    # MB
