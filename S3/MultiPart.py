@@ -8,6 +8,8 @@ from stat import ST_SIZE
 from logging import debug, info, warning, error
 from Utils import getTextFromXml, getTreeFromXml, formatSize, unicodise, calculateChecksum, parseNodes
 from Exceptions import S3UploadError
+from Utils import resolve_list
+import subprocess
 
 class MultiPartUpload(object):
 
@@ -115,8 +117,22 @@ class MultiPartUpload(object):
                     raise
                 seq += 1
         else:
-            while True:
-                buffer = self.file.read(self.chunk_size)
+            if self.s3.config.encrypt == True:
+                self.headers_baseline['x-amz-meta-s3tools-gpgenc']='gpg'
+                args = {
+                    "gpg_command" : self.s3.config.gpg_command,
+                    "passphrase" : self.s3.config.gpg_passphrase,
+                }
+                info(u"Encrypting stdin...")
+                command = resolve_list(self.s3.config.gpg_stream.split(" "), args)
+                debug("GPG command: " + " ".join(command))
+                p = subprocess.Popen(command, stdin = sys.stdin, stdout = subprocess.PIPE)
+                stream=p.stdout
+            else:
+                stream=self.file
+            cont = True
+            while cont:
+                buffer = stream.read(self.chunk_size)
                 offset = self.chunk_size * (seq - 1)
                 current_chunk_size = len(buffer)
                 labels = {
@@ -125,7 +141,14 @@ class MultiPartUpload(object):
                     'extra' : "[part %d, %s]" % (seq, "%d%sB" % formatSize(current_chunk_size, human_readable = True))
                 }
                 if len(buffer) == 0: # EOF
-                    break
+                    if self.s3.config.encrypt == True:
+                        p.wait()
+                        buffer=stream.read()
+                        cont=False
+                        if len(buffer) ==0:
+                            break;
+                    else:
+                        break
                 try:
                     self.upload_part(seq, offset, current_chunk_size, labels, buffer, remote_status = remote_statuses.get(seq))
                 except:
