@@ -371,7 +371,8 @@ def cmd_object_put(args):
         full_name = full_name_orig
         seq_label = "[%d of %d]" % (seq, local_count)
         if Config().encrypt:
-            gpg_exitcode, full_name, extra_headers["x-amz-meta-s3tools-gpgenc"] = gpg_encrypt(full_name_orig)
+            if not key == "-" : #deal with encrypting stdin in multipart upload
+                gpg_exitcode, full_name, extra_headers["x-amz-meta-s3tools-gpgenc"] = gpg_encrypt(full_name_orig)
         if cfg.preserve_attrs or local_list[key]['size'] > (cfg.multipart_chunk_size_mb * 1024 * 1024):
             attr_header = _build_attr_header(local_list, key)
             debug(u"attr_header: %s" % attr_header)
@@ -1727,11 +1728,6 @@ def cmd_fixbucket(args):
         warning("them publicly readable if required.")
     return EX_OK
 
-def resolve_list(lst, args):
-    retval = []
-    for item in lst:
-        retval.append(item % args)
-    return retval
 
 def gpg_command(command, passphrase = ""):
     debug("GPG command: " + " ".join(command))
@@ -2130,13 +2126,18 @@ def main():
     optparser.add_option(      "--configure", dest="run_configure", action="store_true", help="Invoke interactive (re)configuration tool. Optionally use as '--configure s3://some-bucket' to test access to a specific bucket instead of attempting to list them all.")
     optparser.add_option("-c", "--config", dest="config", metavar="FILE", help="Config file name. Defaults to %default")
     optparser.add_option(      "--dump-config", dest="dump_config", action="store_true", help="Dump current configuration after parsing config files and command line options and exit.")
-    optparser.add_option(      "--access_key", dest="access_key", help="AWS Access Key")
-    optparser.add_option(      "--secret_key", dest="secret_key", help="AWS Secret Key")
+    optparser.add_option(      "--access_key", dest="access_key", help="Access Key")
+    optparser.add_option(      "--secret_key", dest="secret_key", help="Secret Key")
+    optparser.add_option(      "--host_base", dest="host_base", help="S3 Host Base")
+    optparser.add_option(      "--host_bucket", dest="host_bucket", help="S3 Host Bucket")
 
     optparser.add_option("-n", "--dry-run", dest="dry_run", action="store_true", help="Only show what should be uploaded or downloaded but don't actually do it. May still perform S3 requests to get bucket listings and other information though (only for file transfer commands)")
 
     optparser.add_option("-e", "--encrypt", dest="encrypt", action="store_true", help="Encrypt files before uploading to S3.")
     optparser.add_option(      "--no-encrypt", dest="encrypt", action="store_false", help="Don't encrypt files.")
+    optparser.add_option(      "--encrypt-passphrase", dest="gpg_passphrase", help="Encryption password")
+
+
     optparser.add_option("-f", "--force", dest="force", action="store_true", help="Force overwrite and other dangerous operations.")
     optparser.add_option(      "--continue", dest="get_continue", action="store_true", help="Continue getting a partially downloaded file (only for [get] command).")
     optparser.add_option(      "--continue-put", dest="put_continue", action="store_true", help="Continue uploading partially uploaded files or multipart upload parts.  Restarts/parts files that don't have matching size and md5.  Skips files/parts that do.  Note: md5sum checks are not always sufficient to check (part) file equality.  Enable this at your own risk.")
@@ -2335,6 +2336,10 @@ def main():
             ## Some Config() options are not settable from command line
             pass
 
+    ## add host bucket name if not specified
+    if cfg.host_bucket  == "" and cfg.host_base != "":
+        cfg.update_option("host_bucket", "%(bucket)s."+cfg.host_base)
+
     ## Special handling for tri-state options (True, False, None)
     cfg.update_option("enable", options.enable)
     cfg.update_option("acl_public", options.acl_public)
@@ -2402,8 +2407,8 @@ def main():
     socket.setdefaulttimeout(cfg.socket_timeout)
 
     if cfg.encrypt and cfg.gpg_passphrase == "":
-        error(u"Encryption requested but no passphrase set in config file.")
-        error(u"Please re-run 's3cmd --configure' and supply it.")
+        error(u"Encryption requested but no passphrase set in config file or command line.")
+        error(u"Please re-run 's3cmd --configure' and supply it or specify --encrypt-passphrase as an argument.")
         sys.exit(EX_CONFIG)
 
     if options.dump_config:
@@ -2462,7 +2467,10 @@ def report_exception(e, msg=''):
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 """ % msg)
-        s = u' '.join([unicodise(a) for a in sys.argv])
+	if type(e) == ImportError:
+	    s = u' '.join([(a) for a in sys.argv])
+	else:
+            s = u' '.join([unicodise(a) for a in sys.argv])
         sys.stderr.write(u"Invoked as: %s\n" % s)
 
         tb = traceback.format_exc(sys.exc_info())
@@ -2519,13 +2527,14 @@ if __name__ == '__main__':
         from S3.CloudFront import CloudFront
         from S3.FileLists import *
         from S3.MultiPart import MultiPartUpload
+        from S3.Utils import resolve_list
 
         rc = main()
         sys.exit(rc)
 
     except ImportError, e:
         report_exception(e)
-        sys.exit(EX_GENERAL)
+        sys.exit(1)
 
     except (ParameterError, InvalidFileError), e:
         error(u"Parameter problem: %s" % e)
